@@ -10,7 +10,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 BARCODE_PDF_PATH = os.path.join(DATA_DIR, "master_fnsku.pdf")
 MASTER_FILE = os.path.join(DATA_DIR, "temp_master.xlsx")
 META_FILE = os.path.join(DATA_DIR, "master_meta.txt")
-ADMIN_PASSWORD = "admin123"
+ADMIN_PASSWORD = "admin@2025#"
 
 def sidebar_controls():
     st.sidebar.title("🧰 Sidebar Controls")
