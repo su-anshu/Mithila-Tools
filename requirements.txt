@@ -1,0 +1,18 @@
+# Core app
+streamlit
+pandas
+openpyxl
+
+# PDF generation and manipulation
+reportlab
+fpdf
+PyMuPDF # aka fitz
+
+# Images and barcode support
+Pillow
+
+# Date handling
+python-dateutil
+
+# Optional, for consistent random batch codes
+numpy
