@@ -76,7 +76,7 @@ def packing_plan_tool():
                 sizes = [s.strip().replace("kg", "").strip() for s in split.split(",")]
                 for size in sizes:
                     sub_match = master_df[
-                        (master_df["Name"] == name) & 
+                        (master_df["Name"] == name) &
                         (master_df["Net Weight"].astype(str).str.replace("kg", "").str.strip() == size)
                     ]
                     if not sub_match.empty:
@@ -89,8 +89,8 @@ def packing_plan_tool():
                             "ASIN": sub["ASIN"],
                             "MRP": sub["M.R.P"],
                             "FNSKU": sub["FNSKU"],
-                            "Packed": "",
-                            "Unpacked": ""
+                            "Packed Today": "",
+                            "Available": ""
                         })
             else:
                 physical_rows.append({
@@ -101,12 +101,13 @@ def packing_plan_tool():
                     "ASIN": asin,
                     "MRP": base["M.R.P"],
                     "FNSKU": base["FNSKU"],
-                    "Packed": "",
-                    "Unpacked": ""
+                    "Packed Today": "",
+                    "Available": ""
                 })
+
         df_physical = pd.DataFrame(physical_rows)
         return df_physical.groupby(
-            ["item", "weight", "Packet Size", "ASIN", "MRP", "FNSKU", "Packed", "Unpacked"],
+            ["item", "weight", "Packet Size", "ASIN", "MRP", "FNSKU", "Packed Today", "Available"],
             as_index=False
         ).agg({"Qty": "sum"})
 
@@ -129,8 +130,8 @@ def packing_plan_tool():
                 col_widths.append(50)
 
             if include_tracking:
-                headers += ["Packed", "Unpacked"]
-                col_widths += [20, 20]
+                headers += ["Packed Today", "Available"]
+                col_widths += [30, 30]
 
             margin_x = (210 - sum(col_widths)) / 2
             pdf.set_x(margin_x)
@@ -146,7 +147,7 @@ def packing_plan_tool():
                 if not hide_asin:
                     values.append(row["ASIN"])
                 if include_tracking:
-                    values += [row["Packed"], row["Unpacked"]]
+                    values += [row["Packed Today"], row["Available"]]
                 for val, width in zip(values, col_widths):
                     pdf.cell(width, 10, str(val), 1)
                 pdf.ln()
