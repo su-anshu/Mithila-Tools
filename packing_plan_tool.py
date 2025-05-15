@@ -89,6 +89,7 @@ def packing_plan_tool():
                             "ASIN": sub["ASIN"],
                             "MRP": sub["M.R.P"],
                             "FNSKU": sub["FNSKU"],
+                            "FSSAI": sub.get("FSSAI", ""),
                             "Packed Today": "",
                             "Available": ""
                         })
@@ -101,13 +102,14 @@ def packing_plan_tool():
                     "ASIN": asin,
                     "MRP": base["M.R.P"],
                     "FNSKU": base["FNSKU"],
+                    "FSSAI": base.get("FSSAI", ""),
                     "Packed Today": "",
                     "Available": ""
                 })
 
         df_physical = pd.DataFrame(physical_rows)
         return df_physical.groupby(
-            ["item", "weight", "Packet Size", "ASIN", "MRP", "FNSKU", "Packed Today", "Available"],
+            ["item", "weight", "Packet Size", "ASIN", "MRP", "FNSKU", "FSSAI", "Packed Today", "Available"],
             as_index=False
         ).agg({"Qty": "sum"})
 
@@ -198,7 +200,7 @@ def packing_plan_tool():
             df_orders = pd.DataFrame([{"ASIN": asin, "Qty": qty} for asin, qty in asin_qty_data.items()])
             df_orders = pd.merge(df_orders, master_df, on="ASIN", how="left")
             df_orders.rename(columns={"Name": "item", "Net Weight": "weight", "M.R.P": "MRP"}, inplace=True)
-            df_orders = df_orders[["item", "weight", "Qty", "Packet Size", "ASIN", "MRP", "FNSKU"]]
+            df_orders = df_orders[["item", "weight", "Qty", "Packet Size", "ASIN", "MRP", "FNSKU", "FSSAI"]]
 
             df_physical = expand_to_physical(df_orders, master_df)
 
