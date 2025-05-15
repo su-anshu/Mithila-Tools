@@ -46,7 +46,7 @@ def generate_pdf(dataframe):
         c.drawString(2 * mm, 14 * mm, f"M.R.P: {mrp}")
         c.drawString(2 * mm, 10 * mm, f"M.F.G: {mfg_date} | USE BY: {use_by}")
         c.drawString(2 * mm, 6 * mm, f"Batch Code: {batch_code}")
-        c.drawString(2 * mm, 2 * mm, f"M.F.G. FSSAI: {fssai}")
+        c.drawString(2 * mm, 2 * mm, f"FSSAI: {fssai}")
         c.showPage()
 
     c.save()
