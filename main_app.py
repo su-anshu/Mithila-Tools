@@ -6,7 +6,8 @@ st.sidebar.title("🧰 Mithila Dashboard")
 tool = st.sidebar.selectbox("Choose a tool", [
     "📦 Packing Plan Generator",
     "🔖 Manual Packing Plan Generator",
-    "🔖 Label Generator"
+    "🔖 Label Generator",
+    "📥 Easy Ship Report Generator"  # NEW
 ])
 
 if tool == "📦 Packing Plan Generator":
@@ -20,3 +21,7 @@ elif tool == "🔖 Label Generator":
 elif tool == "🔖 Manual Packing Plan Generator":
     from manual_packing_plan import manual_packing_plan
     manual_packing_plan()
+
+elif tool == "📥 Easy Ship Report Generator":
+    from easy_ship_report import easy_ship_report
+    easy_ship_report()  # NEW: function to be defined in easy_ship_report.py
