@@ -4,7 +4,7 @@ import re
 from io import BytesIO
 from datetime import date
 import logging
-from sidebar import sidebar_controls
+from sidebar import sidebar_controls, load_master_data
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, KeepTogether, PageBreak
 )
@@ -49,29 +49,29 @@ def detect_multi_item_orders(df):
 
 def easy_ship_report():
     st.title("📥 Easy Ship Order Report Generator")
-    admin_logged_in, MASTER_FILE, _, _ = sidebar_controls()
+    admin_logged_in, _, _, _ = sidebar_controls()
 
-    # Load MRP Excel to map ASIN → Clean Name
+    # Load master data from Google Sheets or Excel backup
     mrp_df = None
     asin_map = pd.DataFrame()
     
-    if os.path.exists(MASTER_FILE):
+    mrp_df = load_master_data()
+    if mrp_df is not None:
         try:
-            mrp_df = pd.read_excel(MASTER_FILE)
             if 'Name' in mrp_df.columns and 'Net Weight' in mrp_df.columns:
                 mrp_df['clean_product_name'] = (
                     mrp_df['Name'].fillna('Unknown') + " " + 
                     mrp_df['Net Weight'].fillna('N/A').astype(str) + "kg"
                 )
                 asin_map = mrp_df[['ASIN', 'clean_product_name']].dropna()
-                logger.info(f"Loaded {len(asin_map)} ASIN mappings from master file")
+                logger.info(f"Loaded {len(asin_map)} ASIN mappings from master data")
             else:
-                st.warning("⚠️ Master file missing required columns (Name, Net Weight)")
+                st.warning("⚠️ Master data missing required columns (Name, Net Weight)")
         except Exception as e:
-            st.warning(f"⚠️ Could not load master Excel file: {str(e)}")
-            logger.error(f"Error loading master file: {str(e)}")
+            st.warning(f"⚠️ Could not process master data: {str(e)}")
+            logger.error(f"Error processing master data: {str(e)}")
     else:
-        st.warning("⚠️ Master Excel not found. Product names may not be cleaned.")
+        st.warning("⚠️ Master data not available. Product names may not be cleaned.")
 
     # Easy Ship file uploader
     uploaded_file = st.file_uploader("Upload your Amazon Easy Ship Excel file", type="xlsx")

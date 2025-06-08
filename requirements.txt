@@ -2,6 +2,7 @@
 streamlit
 pandas
 openpyxl
+requests  # Added for Google Sheets integration
 
 # PDF generation and manipulation
 reportlab

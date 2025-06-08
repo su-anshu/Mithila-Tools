@@ -4,7 +4,7 @@ import os
 from fpdf import FPDF
 from datetime import datetime
 import logging
-from sidebar import sidebar_controls, MANUAL_PLAN_FILE
+from sidebar import sidebar_controls, load_master_data, MANUAL_PLAN_FILE
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)

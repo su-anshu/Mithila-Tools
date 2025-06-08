@@ -13,7 +13,7 @@ from PIL import Image
 import re
 import contextlib
 import logging
-from sidebar import sidebar_controls, MASTER_FILE, BARCODE_PDF_PATH
+from sidebar import sidebar_controls, load_master_data, MASTER_FILE, BARCODE_PDF_PATH
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -215,34 +215,25 @@ def generate_combined_label_pdf(mrp_df, fnsku_code, barcode_pdf_path):
 def label_generator_tool():
     st.title("🔖 MRP Label Generator")
     st.caption("Generate 48mm x 25mm labels with MRP, batch code, FSSAI & barcode.")
-    sidebar_controls()
+    admin_logged_in, _, BARCODE_PDF_PATH, _ = sidebar_controls()
 
     def sanitize_filename(name):
         """Sanitize filename for safe file operations"""
         return re.sub(r'[^\w\-_\.]', '_', str(name))
 
-    def load_data():
-        """Load master data with error handling"""
-        try:
-            if not os.path.exists(MASTER_FILE):
-                return None
-            df = pd.read_excel(MASTER_FILE)
-            df.columns = df.columns.str.strip()
-            return df
-        except Exception as e:
-            logger.error(f"Error loading master data: {str(e)}")
-            st.error(f"Error loading master data: {str(e)}")
-            return None
-
-    # Load and validate data
-    df = load_data()
+    # Load and validate data from Google Sheets or Excel backup
+    df = load_master_data()
     if df is None:
-        st.warning("⚠️ No master Excel file found. Upload it via sidebar.")
+        st.stop()
         return
     
     if df.empty:
-        st.warning("⚠️ Master Excel file is empty.")
+        st.warning("⚠️ Master data file is empty.")
         return
+    
+    # Clean column names
+    df.columns = df.columns.str.strip()
+    logger.info(f"Loaded master data with {len(df)} products")
     
     # Check required columns
     required_columns = ['Name']

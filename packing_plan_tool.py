@@ -9,7 +9,7 @@ from datetime import datetime
 import os
 import contextlib
 import logging
-from sidebar import sidebar_controls, MASTER_FILE, BARCODE_PDF_PATH
+from sidebar import sidebar_controls, load_master_data, MASTER_FILE, BARCODE_PDF_PATH
 from label_generator_tool import generate_combined_label_pdf, generate_pdf
 
 # Setup logging
@@ -90,20 +90,19 @@ def highlight_large_qty(pdf_bytes):
 
 def packing_plan_tool():
     st.title("📦 Packing Plan Generator (Original Orders + Physical Packing)")
-    sidebar_controls()
+    admin_logged_in, _, BARCODE_PDF_PATH, _ = sidebar_controls()
 
-    if not os.path.exists(MASTER_FILE):
-        st.warning("No master Excel file found. Upload it via sidebar.")
+    # Load master data from Google Sheets or Excel backup
+    master_df = load_master_data()
+    if master_df is None:
+        st.stop()
         return
 
-    try:
-        master_df = pd.read_excel(MASTER_FILE)
-        master_df.columns = master_df.columns.str.strip()
-    except Exception as e:
-        st.error(f"Error reading master file: {str(e)}")
-        return
+    # Clean column names
+    master_df.columns = master_df.columns.str.strip()
+    logger.info(f"Loaded master data with {len(master_df)} products")
 
-    with st.expander("📋 Preview Master Excel"):
+    with st.expander("📋 Preview Master Data"):
         st.dataframe(master_df.head())
 
     pdf_files = st.file_uploader("📥 Upload One or More Invoice PDFs", type=["pdf"], accept_multiple_files=True)
