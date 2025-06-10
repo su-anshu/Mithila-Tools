@@ -49,37 +49,100 @@ def validate_uploaded_file(uploaded_file, max_size_mb=50):
     return True, "Valid file"
 
 def highlight_large_qty(pdf_bytes):
-    """Highlight large quantities in PDF invoices"""
+    """Improved highlighting function for large quantities in PDF invoices"""
     try:
         with safe_pdf_context(pdf_bytes) as doc:
             in_table = False
+            highlighted_count = 0
 
-            for page in doc:
+            for page_num, page in enumerate(doc):
                 text_blocks = page.get_text("blocks")
+                logger.info(f"Processing page {page_num + 1} with {len(text_blocks)} blocks")
 
-                for block in text_blocks:
-                    x0, y0, x1, y1, text, *_ = block
+                for block_idx, block in enumerate(text_blocks):
+                    if len(block) < 5:
+                        continue
+                    x0, y0, x1, y1, text = block[:5]
 
+                    # Detect table start
                     if "Description" in text and "Qty" in text:
                         in_table = True
+                        logger.info(f"Table started at block {block_idx}")
                         continue
 
                     if in_table:
+                        # Skip blocks without digits
                         if not any(char.isdigit() for char in text):
                             continue
-                        if "Qty" in text or "Unit Price" in text or "Total" in text:
+                        
+                        # Skip obvious header blocks
+                        if any(header in text for header in ["Qty", "Unit Price", "Total", "Description"]):
                             continue
 
+                        # Look for quantities > 1 in the text block
+                        should_highlight = False
+                        found_qty = None
+                        
+                        # Method 1: Look for standalone numbers > 1
                         values = text.split()
                         for val in values:
-                            if val.isdigit() and int(val) > 1:
-                                highlight_box = fitz.Rect(x0, y0, x1, y1)
-                                page.draw_rect(highlight_box, color=(1, 0, 0), fill_opacity=0.4)
-                                break
+                            if val.isdigit():
+                                qty_val = int(val)
+                                if qty_val > 1 and qty_val <= 100:  # Reasonable quantity range
+                                    should_highlight = True
+                                    found_qty = qty_val
+                                    break
+                        
+                        # Method 2: Look for price-quantity patterns
+                        if not should_highlight:
+                            price_qty_matches = re.findall(r'(\d+)\s+₹[\d,]+\.?\d*\s+\d+%?\s*(IGST|CGST|SGST)', text)
+                            for match in price_qty_matches:
+                                qty_val = int(match[0])
+                                if qty_val > 1:
+                                    should_highlight = True
+                                    found_qty = qty_val
+                                    break
+                        
+                        # Method 3: Look for lines starting with quantity but avoid tax percentages
+                        if not should_highlight:
+                            lines_in_block = text.split('\n')
+                            for line in lines_in_block:
+                                line = line.strip()
+                                if line:
+                                    # Look for pattern: "3 ₹2,768.67 5% IGST" but not "5% IGST"
+                                    qty_match = re.search(r'^(\d+)\s+₹[\d,]+\.?\d*\s+\d+%?\s*(IGST|CGST|SGST)', line)
+                                    if qty_match:
+                                        qty_val = int(qty_match.group(1))
+                                        if qty_val > 1:
+                                            should_highlight = True
+                                            found_qty = qty_val
+                                            break
+                                    
+                                    # Alternative pattern: look for standalone numbers > 1 followed by price
+                                    # but exclude tax percentages
+                                    alt_match = re.search(r'^(\d+)', line)
+                                    if alt_match:
+                                        qty_val = int(alt_match.group(1))
+                                        if (qty_val > 1 and qty_val <= 100 and
+                                            not re.search(r'^' + str(qty_val) + r'%', line) and
+                                            re.search(r'₹[\d,]+\.?\d*', line)):
+                                            should_highlight = True
+                                            found_qty = qty_val
+                                            break
+                        
+                        # Highlight the block if quantity > 1 found
+                        if should_highlight:
+                            highlight_box = fitz.Rect(x0, y0, x1, y1)
+                            page.draw_rect(highlight_box, color=(1, 0, 0), fill_opacity=0.4)
+                            highlighted_count += 1
+                            logger.info(f"Highlighted block {block_idx} on page {page_num + 1} with qty {found_qty}")
 
-                    if "TOTAL" in text:
+                    # Exit table when we see TOTAL
+                    if "TOTAL" in text.upper():
                         in_table = False
+                        logger.info(f"Table ended at block {block_idx}")
 
+            logger.info(f"Total blocks highlighted: {highlighted_count}")
             output_buffer = BytesIO()
             doc.save(output_buffer)
             output_buffer.seek(0)
@@ -360,19 +423,47 @@ def packing_plan_tool():
                                 if asin_match:
                                     asin = asin_match.group(1)
                                     qty = 1
-                                    # Look for quantity in next few lines
-                                    for j in range(i, min(i + 4, len(lines))):
-                                        match = qty_pattern.search(lines[j])
+                                    # IMPROVED: Look for quantity in next 6 lines (was 4)
+                                    search_range = min(i + 6, len(lines))
+                                    for j in range(i, search_range):
+                                        line = lines[j]
+                                        
+                                        # Pattern 1: Original Qty pattern
+                                        match = qty_pattern.search(line)
                                         if match:
                                             qty = int(match.group(1))
+                                            logger.info(f"Found qty {qty} using Qty pattern: {line.strip()}")
                                             break
-                                    # Fallback to price-quantity pattern
-                                    if qty == 1:
-                                        for j in range(i, min(i + 4, len(lines))):
-                                            match = price_qty_pattern.search(lines[j])
-                                            if match:
-                                                qty = int(match.group(1))
+                                        
+                                        # Pattern 2: Original price pattern  
+                                        match = price_qty_pattern.search(line)
+                                        if match:
+                                            qty = int(match.group(1))
+                                            logger.info(f"Found qty {qty} using price pattern: {line.strip()}")
+                                            break
+                                        
+                                        # Pattern 3: NEW - Multi-item pattern like "3 ₹2,768.67 5% IGST"
+                                        multi_item_match = re.search(r'^(\d+)\s+₹[\d,]+\.?\d*\s+\d+%?\s*(IGST|CGST|SGST)', line.strip())
+                                        if multi_item_match:
+                                            potential_qty = int(multi_item_match.group(1))
+                                            if 1 <= potential_qty <= 100:
+                                                qty = potential_qty
+                                                logger.info(f"Found qty {qty} using multi-item pattern: {line.strip()}")
                                                 break
+                                        
+                                        # Pattern 4: NEW - Standalone number followed by price (but not tax %)
+                                        standalone_match = re.search(r'^(\d+)', line.strip())
+                                        if standalone_match:
+                                            potential_qty = int(standalone_match.group(1))
+                                            # Avoid tax percentages and ensure it's reasonable quantity
+                                            if (1 <= potential_qty <= 100 and 
+                                                not re.search(r'^' + str(potential_qty) + r'%', line.strip()) and
+                                                not re.search(r'HSN:', line) and
+                                                re.search(r'₹[\d,]+\.?\d*', line)):
+                                                qty = potential_qty
+                                                logger.info(f"Found qty {qty} using standalone pattern: {line.strip()}")
+                                                break
+                                    
                                     asin_qty_data[asin] += qty
 
                     # Generate highlighted PDF
